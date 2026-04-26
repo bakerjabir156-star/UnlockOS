@@ -45,20 +45,11 @@ ok "Structure ISO creee"
 # ─────────────────────────────────────────────────────────────────────────────
 log "ETAPE 2 — Copie du kernel et initrd..."
 
-VMLINUZ=$(ls "$CHROOT_DIR"/boot/vmlinuz-* 2>/dev/null | sort -V | tail -1)
-INITRD=$(ls  "$CHROOT_DIR"/boot/initrd.img-* 2>/dev/null | sort -V | tail -1)
+VMLINUZ=$(find "$CHROOT_DIR/boot" -maxdepth 1 -name "vmlinuz*" | sort -V | tail -1 || true)
+INITRD=$(find "$CHROOT_DIR/boot" -maxdepth 1 -name "initrd.img*" | sort -V | tail -1 || true)
 
-if [ -z "$VMLINUZ" ]; then
-  warn "vmlinuz non trouve dans le chroot — tentative alternative"
-  VMLINUZ=$(find "$CHROOT_DIR/boot" -name "vmlinuz*" | sort -V | tail -1)
-fi
-if [ -z "$INITRD" ]; then
-  warn "initrd non trouve dans le chroot — tentative alternative"
-  INITRD=$(find "$CHROOT_DIR/boot" -name "initrd*" | sort -V | tail -1)
-fi
-
-[ -f "$VMLINUZ" ] || die "Kernel introuvable"
-[ -f "$INITRD"  ] || die "Initrd introuvable"
+[ -n "$VMLINUZ" ] && [ -f "$VMLINUZ" ] || die "Kernel introuvable dans $CHROOT_DIR/boot"
+[ -n "$INITRD" ] && [ -f "$INITRD"  ] || die "Initrd introuvable dans $CHROOT_DIR/boot"
 
 sudo cp "$VMLINUZ" "$ISO_DIR/live/vmlinuz"
 sudo cp "$INITRD"  "$ISO_DIR/live/initrd.img"

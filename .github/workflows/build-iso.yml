@@ -127,7 +127,6 @@ jobs:
           apt-get install -y --no-install-recommends \
             linux-image-generic \
             casper \
-            lupin-casper \
             discover \
             laptop-detect \
             os-prober \
@@ -135,7 +134,7 @@ jobs:
             net-tools \
             locales \
             grub2 \
-            grub-pc 2>&1 || true
+            grub-pc
         "
 
     # ─────────────────────────────────────────────────────────────
