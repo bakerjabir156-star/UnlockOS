@@ -124,14 +124,17 @@ jobs:
     # ─────────────────────────────────────────────────────────────
     # 7. Install kernel + initrd inside chroot
     # ─────────────────────────────────────────────────────────────
-    - name: Install kernel in chroot
+    - name: Install kernel and live-boot in chroot
       run: |
         sudo chroot /mnt/chroot /bin/bash -c "
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -qq
           apt-get install -y --no-install-recommends \
             linux-image-generic \
-            casper \
+            live-boot \
+            live-boot-initramfs-tools \
+            live-config \
+            live-config-systemd \
             discover \
             laptop-detect \
             os-prober \
@@ -142,32 +145,35 @@ jobs:
             grub-pc
         "
 
-    - name: Configure overlay and casper user
+    - name: Configure live-boot user and overlay
       run: |
-        # Ajouter le module overlay et squashfs a l'initramfs
-        sudo bash -c "echo 'overlay'  >> /mnt/chroot/etc/initramfs-tools/modules"
-        sudo bash -c "echo 'squashfs' >> /mnt/chroot/etc/initramfs-tools/modules"
+        # ── Modules overlay + squashfs dans l'initramfs ───────────────────
+        echo "overlay"  | sudo tee -a /mnt/chroot/etc/initramfs-tools/modules
+        echo "squashfs" | sudo tee -a /mnt/chroot/etc/initramfs-tools/modules
 
-        # Creer casper.conf (configuration de l'utilisateur live)
-        sudo bash -c "printf '%s\n' \
-          'export USERNAME=unlockos' \
-          'export USERFULLNAME=UnlockOS User' \
-          'export HOST=unlockos' \
-          'export BUILD_SYSTEM=Ubuntu' \
-          > /mnt/chroot/etc/casper.conf"
+        # ── Creer /etc/live/config.conf pour live-config ──────────────────
+        sudo mkdir -p /mnt/chroot/etc/live
+        sudo tee /mnt/chroot/etc/live/config.conf > /dev/null << 'EOF'
+LIVE_CONFIG_COMPONENTS="hostname,user-setup,sudo,locales,timezone,keyboard-layouts,sysv-rc,x11-common,xorg,gdm3,login,getty,keyboard-layouts"
+LIVE_HOSTNAME="unlockos"
+LIVE_USERNAME="unlockos"
+LIVE_USER_FULLNAME="UnlockOS User"
+LIVE_USER_DEFAULT_GROUPS="audio,cdrom,dialout,floppy,video,plugdev,netdev,sudo"
+EOF
 
-        # Creer l'utilisateur unlockos dans le chroot
-        sudo chroot /mnt/chroot /bin/bash -c "
-          useradd -m -s /bin/bash -G sudo,adm,audio,video,plugdev,netdev \
-            -c 'UnlockOS User' unlockos 2>/dev/null || true
-          echo 'unlockos:unlockos' | chpasswd
-          printf 'unlockos ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/unlockos
-          chmod 440 /etc/sudoers.d/unlockos
-        "
+        # ── Creer l'utilisateur unlockos dans le chroot ───────────────────
+        sudo chroot /mnt/chroot useradd \
+          -m -s /bin/bash \
+          -G sudo,adm,audio,video,plugdev,netdev \
+          -c "UnlockOS User" unlockos 2>/dev/null || true
+        echo "unlockos:unlockos" | sudo chroot /mnt/chroot chpasswd
+        echo "unlockos ALL=(ALL) NOPASSWD:ALL" \
+          | sudo tee /mnt/chroot/etc/sudoers.d/unlockos > /dev/null
+        sudo chmod 440 /mnt/chroot/etc/sudoers.d/unlockos
 
-        # Regenerer l'initramfs avec le module overlay inclus
-        sudo chroot /mnt/chroot update-initramfs -u -k all 2>/dev/null || true
-        echo "Overlay + casper user configured"
+        # ── Regenerer l'initramfs avec overlay inclus ─────────────────────
+        sudo chroot /mnt/chroot update-initramfs -u -k all
+        echo "live-boot + overlay configured"
 
     # ─────────────────────────────────────────────────────────────
     # 8. Unmount virtual filesystems

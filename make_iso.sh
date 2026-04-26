@@ -68,7 +68,6 @@ log "ETAPE 3 — Compression SquashFS du chroot (peut prendre 10-20 min)..."
 
 sudo mksquashfs "$CHROOT_DIR" "$ISO_DIR/casper/filesystem.squashfs" \
   -comp xz \
-  -Xbcj x86 \
   -b 1M \
   -e "$CHROOT_DIR/proc" \
   -e "$CHROOT_DIR/sys" \
@@ -101,22 +100,22 @@ terminal_output gfxterm 2>/dev/null || terminal_output console
 search --no-floppy --set=root --file /casper/vmlinuz
 
 menuentry "UnlockOS 1.0 — Boot (Standard)" --class unlockos --class gnu-linux {
-    linux   /casper/vmlinuz boot=casper live-media-path=/casper username=unlockos hostname=unlockos quiet splash locale=fr_MA.UTF-8 ---
+    linux   /casper/vmlinuz boot=live live-media-path=/casper live-config.username=unlockos live-config.hostname=unlockos quiet splash ---
     initrd  /casper/initrd.img
 }
 
 menuentry "UnlockOS 1.0 — Boot (Debug mode)" --class unlockos {
-    linux   /casper/vmlinuz boot=casper live-media-path=/casper username=unlockos hostname=unlockos debug verbose locale=fr_MA.UTF-8 ---
+    linux   /casper/vmlinuz boot=live live-media-path=/casper live-config.username=unlockos live-config.hostname=unlockos debug verbose ---
     initrd  /casper/initrd.img
 }
 
 menuentry "UnlockOS 1.0 — Boot (no splash)" --class unlockos {
-    linux   /casper/vmlinuz boot=casper live-media-path=/casper username=unlockos hostname=unlockos locale=fr_MA.UTF-8 ---
+    linux   /casper/vmlinuz boot=live live-media-path=/casper live-config.username=unlockos live-config.hostname=unlockos ---
     initrd  /casper/initrd.img
 }
 
 menuentry "Check integrity" {
-    linux   /casper/vmlinuz boot=casper live-media-path=/casper username=unlockos integrity-check quiet splash ---
+    linux   /casper/vmlinuz boot=live live-media-path=/casper integrity-check quiet splash ---
     initrd  /casper/initrd.img
 }
 
