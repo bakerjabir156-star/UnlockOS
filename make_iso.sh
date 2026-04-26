@@ -140,9 +140,9 @@ grub-mkstandalone \
   "boot/grub/grub.cfg=$ISO_DIR/boot/grub/grub.cfg" \
   2>/dev/null || warn "grub-mkstandalone EFI: erreur (BIOS boot toujours disponible)"
 
-# Image FAT pour EFI
-dd if=/dev/zero of="$ISO_DIR/boot/grub/efi.img" bs=1M count=10 2>/dev/null
-mkfs.fat -F 12 -n "EFIBOOT" "$ISO_DIR/boot/grub/efi.img" 2>/dev/null
+# Image FAT pour EFI (FAT16 pour une meilleure compatibilite)
+dd if=/dev/zero of="$ISO_DIR/boot/grub/efi.img" bs=1M count=20 2>/dev/null
+mkfs.fat -F 16 -n "EFIBOOT" "$ISO_DIR/boot/grub/efi.img" 2>/dev/null
 sudo mkdir -p /mnt/efi_tmp
 sudo mount "$ISO_DIR/boot/grub/efi.img" /mnt/efi_tmp 2>/dev/null || warn "Mount EFI img: echec"
 sudo mkdir -p /mnt/efi_tmp/EFI/boot 2>/dev/null || true
