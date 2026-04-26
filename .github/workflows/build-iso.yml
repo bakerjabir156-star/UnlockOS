@@ -140,28 +140,34 @@ jobs:
             locales \
             grub2 \
             grub-pc
+        "
 
-          # ── Module overlay requis par casper pour le live boot ──────────
-          echo 'overlay' >> /etc/initramfs-tools/modules
-          echo 'squashfs' >> /etc/initramfs-tools/modules
+    - name: Configure overlay and casper user
+      run: |
+        # Ajouter le module overlay et squashfs a l'initramfs
+        sudo bash -c "echo 'overlay'  >> /mnt/chroot/etc/initramfs-tools/modules"
+        sudo bash -c "echo 'squashfs' >> /mnt/chroot/etc/initramfs-tools/modules"
 
-          # ── Regenerer l'initramfs avec le module overlay inclus ─────────
-          update-initramfs -u -k all 2>/dev/null || true
+        # Creer casper.conf (configuration de l'utilisateur live)
+        sudo bash -c "printf '%s\n' \
+          'export USERNAME=unlockos' \
+          'export USERFULLNAME=UnlockOS User' \
+          'export HOST=unlockos' \
+          'export BUILD_SYSTEM=Ubuntu' \
+          > /mnt/chroot/etc/casper.conf"
 
-          # ── Configurer casper (utilisateur live + hostname) ─────────────
-          cat > /etc/casper.conf << 'CASPEREOF'
-export USERNAME=unlockos
-export USERFULLNAME='UnlockOS User'
-export HOST=unlockos
-export BUILD_SYSTEM=Ubuntu
-CASPEREOF
-
-          # ── Creer l'utilisateur unlockos (casper en a besoin) ───────────
+        # Creer l'utilisateur unlockos dans le chroot
+        sudo chroot /mnt/chroot /bin/bash -c "
           useradd -m -s /bin/bash -G sudo,adm,audio,video,plugdev,netdev \
             -c 'UnlockOS User' unlockos 2>/dev/null || true
           echo 'unlockos:unlockos' | chpasswd
-          echo 'unlockos ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/unlockos
+          printf 'unlockos ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/unlockos
+          chmod 440 /etc/sudoers.d/unlockos
         "
+
+        # Regenerer l'initramfs avec le module overlay inclus
+        sudo chroot /mnt/chroot update-initramfs -u -k all 2>/dev/null || true
+        echo "Overlay + casper user configured"
 
     # ─────────────────────────────────────────────────────────────
     # 8. Unmount virtual filesystems
