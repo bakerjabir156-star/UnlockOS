@@ -171,10 +171,10 @@ ok "BIOS image prete"
 # ─────────────────────────────────────────────────────────────────────────────
 log "ETAPE 7 — Metadonnees ISO..."
 
+mkdir -p "$ISO_DIR/.disk"
 cat > "$ISO_DIR/.disk/info" << EOF
 UnlockOS 1.0 "${DATE}" - Mobile Unlock Toolkit
 EOF
-mkdir -p "$ISO_DIR/.disk"
 echo "full_cd" > "$ISO_DIR/.disk/cd_type"
 
 # Taille filesystem
