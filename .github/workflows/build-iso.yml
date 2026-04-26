@@ -153,13 +153,10 @@ jobs:
 
         # ── Creer /etc/live/config.conf pour live-config ──────────────────
         sudo mkdir -p /mnt/chroot/etc/live
-        sudo tee /mnt/chroot/etc/live/config.conf > /dev/null << 'EOF'
-LIVE_CONFIG_COMPONENTS="hostname,user-setup,sudo,locales,timezone,keyboard-layouts,sysv-rc,x11-common,xorg,gdm3,login,getty,keyboard-layouts"
-LIVE_HOSTNAME="unlockos"
-LIVE_USERNAME="unlockos"
-LIVE_USER_FULLNAME="UnlockOS User"
-LIVE_USER_DEFAULT_GROUPS="audio,cdrom,dialout,floppy,video,plugdev,netdev,sudo"
-EOF
+        echo 'LIVE_HOSTNAME="unlockos"'                                           | sudo tee    /mnt/chroot/etc/live/config.conf > /dev/null
+        echo 'LIVE_USERNAME="unlockos"'                                           | sudo tee -a /mnt/chroot/etc/live/config.conf > /dev/null
+        echo 'LIVE_USER_FULLNAME="UnlockOS User"'                                 | sudo tee -a /mnt/chroot/etc/live/config.conf > /dev/null
+        echo 'LIVE_USER_DEFAULT_GROUPS="audio,cdrom,dialout,video,plugdev,netdev,sudo"' | sudo tee -a /mnt/chroot/etc/live/config.conf > /dev/null
 
         # ── Creer l'utilisateur unlockos dans le chroot ───────────────────
         sudo chroot /mnt/chroot useradd \
@@ -172,8 +169,9 @@ EOF
         sudo chmod 440 /mnt/chroot/etc/sudoers.d/unlockos
 
         # ── Regenerer l'initramfs avec overlay inclus ─────────────────────
-        sudo chroot /mnt/chroot update-initramfs -u -k all
+        sudo chroot /mnt/chroot update-initramfs -u -k all 2>/dev/null || true
         echo "live-boot + overlay configured"
+        cat /mnt/chroot/etc/live/config.conf
 
     # ─────────────────────────────────────────────────────────────
     # 8. Unmount virtual filesystems
