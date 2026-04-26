@@ -17,6 +17,8 @@ jobs:
     name: Build UnlockOS Bootable ISO
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
     # ─────────────────────────────────────────────────────────────
@@ -24,6 +26,8 @@ jobs:
     # ─────────────────────────────────────────────────────────────
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     # ─────────────────────────────────────────────────────────────
     # 2. Install ISO build tools
