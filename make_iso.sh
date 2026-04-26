@@ -69,11 +69,6 @@ log "ETAPE 3 — Compression SquashFS du chroot (peut prendre 10-20 min)..."
 sudo mksquashfs "$CHROOT_DIR" "$ISO_DIR/casper/filesystem.squashfs" \
   -comp xz \
   -b 1M \
-  -e "$CHROOT_DIR/proc" \
-  -e "$CHROOT_DIR/sys" \
-  -e "$CHROOT_DIR/dev" \
-  -e "$CHROOT_DIR/run" \
-  -e "$CHROOT_DIR/tmp" \
   -noappend
 
 SQUASHFS_SIZE=$(du -sh "$ISO_DIR/casper/filesystem.squashfs" | cut -f1)
