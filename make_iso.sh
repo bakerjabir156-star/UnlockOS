@@ -101,22 +101,22 @@ terminal_output gfxterm 2>/dev/null || terminal_output console
 search --no-floppy --set=root --file /casper/vmlinuz
 
 menuentry "UnlockOS 1.0 — Boot (Standard)" --class unlockos --class gnu-linux {
-    linux   /casper/vmlinuz boot=casper live-media-path=/casper quiet splash locale=fr_MA.UTF-8 ---
+    linux   /casper/vmlinuz boot=casper live-media-path=/casper username=unlockos hostname=unlockos quiet splash locale=fr_MA.UTF-8 ---
     initrd  /casper/initrd.img
 }
 
 menuentry "UnlockOS 1.0 — Boot (Debug mode)" --class unlockos {
-    linux   /casper/vmlinuz boot=casper live-media-path=/casper debug verbose locale=fr_MA.UTF-8 ---
+    linux   /casper/vmlinuz boot=casper live-media-path=/casper username=unlockos hostname=unlockos debug verbose locale=fr_MA.UTF-8 ---
     initrd  /casper/initrd.img
 }
 
 menuentry "UnlockOS 1.0 — Boot (no splash)" --class unlockos {
-    linux   /casper/vmlinuz boot=casper live-media-path=/casper locale=fr_MA.UTF-8 ---
+    linux   /casper/vmlinuz boot=casper live-media-path=/casper username=unlockos hostname=unlockos locale=fr_MA.UTF-8 ---
     initrd  /casper/initrd.img
 }
 
 menuentry "Check integrity" {
-    linux   /casper/vmlinuz boot=casper live-media-path=/casper integrity-check quiet splash ---
+    linux   /casper/vmlinuz boot=casper live-media-path=/casper username=unlockos integrity-check quiet splash ---
     initrd  /casper/initrd.img
 }
 
