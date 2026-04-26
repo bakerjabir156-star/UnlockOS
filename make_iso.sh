@@ -37,7 +37,7 @@ done
 # ─────────────────────────────────────────────────────────────────────────────
 log "ETAPE 1 — Creation de la structure ISO..."
 sudo rm -rf "$ISO_DIR"
-mkdir -p "$ISO_DIR"/{live,boot/grub,EFI/boot}
+mkdir -p "$ISO_DIR"/{casper,boot/grub,EFI/boot}
 ok "Structure ISO creee"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -51,8 +51,8 @@ INITRD=$(find "$CHROOT_DIR/boot" -maxdepth 1 -name "initrd.img*" | sort -V | tai
 [ -n "$VMLINUZ" ] && [ -f "$VMLINUZ" ] || die "Kernel introuvable dans $CHROOT_DIR/boot"
 [ -n "$INITRD" ] && [ -f "$INITRD"  ] || die "Initrd introuvable dans $CHROOT_DIR/boot"
 
-sudo cp "$VMLINUZ" "$ISO_DIR/live/vmlinuz"
-sudo cp "$INITRD"  "$ISO_DIR/live/initrd.img"
+sudo cp -L "$VMLINUZ" "$ISO_DIR/casper/vmlinuz"
+sudo cp -L "$INITRD"  "$ISO_DIR/casper/initrd.img"
 ok "Kernel: $(basename $VMLINUZ)"
 ok "Initrd: $(basename $INITRD)"
 
@@ -61,7 +61,7 @@ ok "Initrd: $(basename $INITRD)"
 # ─────────────────────────────────────────────────────────────────────────────
 log "ETAPE 3 — Compression SquashFS du chroot (peut prendre 10-20 min)..."
 
-sudo mksquashfs "$CHROOT_DIR" "$ISO_DIR/live/filesystem.squashfs" \
+sudo mksquashfs "$CHROOT_DIR" "$ISO_DIR/casper/filesystem.squashfs" \
   -comp xz \
   -Xbcj x86 \
   -b 1M \
@@ -72,7 +72,7 @@ sudo mksquashfs "$CHROOT_DIR" "$ISO_DIR/live/filesystem.squashfs" \
   -e "$CHROOT_DIR/tmp" \
   -noappend
 
-SQUASHFS_SIZE=$(du -sh "$ISO_DIR/live/filesystem.squashfs" | cut -f1)
+SQUASHFS_SIZE=$(du -sh "$ISO_DIR/casper/filesystem.squashfs" | cut -f1)
 ok "SquashFS cree: $SQUASHFS_SIZE"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -93,24 +93,27 @@ insmod all_video
 insmod gfxterm
 terminal_output gfxterm 2>/dev/null || terminal_output console
 
+# Recherche du peripherique de boot (ISO/USB)
+search --no-floppy --set=root --label UNLOCKOS_10
+
 menuentry "UnlockOS 1.0 — Boot (Standard)" --class unlockos --class gnu-linux {
-    linux   /live/vmlinuz boot=casper quiet splash locale=fr_MA.UTF-8 ---
-    initrd  /live/initrd.img
+    linux   /casper/vmlinuz boot=casper quiet splash locale=fr_MA.UTF-8 ---
+    initrd  /casper/initrd.img
 }
 
 menuentry "UnlockOS 1.0 — Boot (Debug mode)" --class unlockos {
-    linux   /live/vmlinuz boot=casper debug verbose locale=fr_MA.UTF-8 ---
-    initrd  /live/initrd.img
+    linux   /casper/vmlinuz boot=casper debug verbose locale=fr_MA.UTF-8 ---
+    initrd  /casper/initrd.img
 }
 
 menuentry "UnlockOS 1.0 — Boot (no splash)" --class unlockos {
-    linux   /live/vmlinuz boot=casper locale=fr_MA.UTF-8 ---
-    initrd  /live/initrd.img
+    linux   /casper/vmlinuz boot=casper locale=fr_MA.UTF-8 ---
+    initrd  /casper/initrd.img
 }
 
 menuentry "Check integrity" {
-    linux   /live/vmlinuz boot=casper integrity-check quiet splash ---
-    initrd  /live/initrd.img
+    linux   /casper/vmlinuz boot=casper integrity-check quiet splash ---
+    initrd  /casper/initrd.img
 }
 
 menuentry "Boot from first hard drive" {
@@ -130,6 +133,8 @@ log "ETAPE 5 — Preparation GRUB EFI..."
 grub-mkstandalone \
   --format=x86_64-efi \
   --output="$ISO_DIR/EFI/boot/bootx64.efi" \
+  --install-modules="linux normal iso9660 biosdisk memdisk search tar ls all_video gfxterm font echo part_gpt part_msdos fat test" \
+  --modules="linux normal iso9660 search part_gpt part_msdos fat" \
   --locales="" \
   --fonts="" \
   "boot/grub/grub.cfg=$ISO_DIR/boot/grub/grub.cfg" \
@@ -179,11 +184,11 @@ echo "full_cd" > "$ISO_DIR/.disk/cd_type"
 
 # Taille filesystem
 du -sx --block-size=1 "$CHROOT_DIR" 2>/dev/null | cut -f1 \
-  > "$ISO_DIR/live/filesystem.size" || echo "0" > "$ISO_DIR/live/filesystem.size"
+  > "$ISO_DIR/casper/filesystem.size" || echo "0" > "$ISO_DIR/casper/filesystem.size"
 
 # Manifest des paquets
 sudo chroot "$CHROOT_DIR" dpkg-query -W --showformat='${Package} ${Version}\n' 2>/dev/null \
-  > "$ISO_DIR/live/filesystem.manifest" || true
+  > "$ISO_DIR/casper/filesystem.manifest" || true
 
 ok "Metadonnees ajoutees"
 
