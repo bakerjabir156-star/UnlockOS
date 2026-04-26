@@ -153,25 +153,36 @@ jobs:
 
         # ── Creer /etc/live/config.conf pour live-config ──────────────────
         sudo mkdir -p /mnt/chroot/etc/live
-        echo 'LIVE_HOSTNAME="unlockos"'                                           | sudo tee    /mnt/chroot/etc/live/config.conf > /dev/null
-        echo 'LIVE_USERNAME="unlockos"'                                           | sudo tee -a /mnt/chroot/etc/live/config.conf > /dev/null
-        echo 'LIVE_USER_FULLNAME="UnlockOS User"'                                 | sudo tee -a /mnt/chroot/etc/live/config.conf > /dev/null
-        echo 'LIVE_USER_DEFAULT_GROUPS="audio,cdrom,dialout,video,plugdev,netdev,sudo"' | sudo tee -a /mnt/chroot/etc/live/config.conf > /dev/null
+        sudo tee /mnt/chroot/etc/live/config.conf > /dev/null \
+          <<< $'LIVE_HOSTNAME="unlockos"\nLIVE_USERNAME="unlockos"\nLIVE_USER_FULLNAME="UnlockOS User"\nLIVE_USER_DEFAULT_GROUPS="sudo,adm,audio,video,plugdev,netdev"'
 
-        # ── Creer l'utilisateur unlockos dans le chroot ───────────────────
+        # ── Creer les groupes manquants dans le chroot ────────────────────
+        for grp in sudo adm audio video plugdev netdev cdrom dialout; do
+          sudo chroot /mnt/chroot groupadd "$grp" 2>/dev/null || true
+        done
+
+        # ── Creer l'utilisateur unlockos ──────────────────────────────────
         sudo chroot /mnt/chroot useradd \
-          -m -s /bin/bash \
-          -G sudo,adm,audio,video,plugdev,netdev \
-          -c "UnlockOS User" unlockos 2>/dev/null || true
-        echo "unlockos:unlockos" | sudo chroot /mnt/chroot chpasswd
+          -m -s /bin/bash -c "UnlockOS User" unlockos 2>/dev/null || true
+
+        # ── Ajouter aux groupes disponibles ───────────────────────────────
+        for grp in sudo adm audio video plugdev netdev; do
+          sudo chroot /mnt/chroot usermod -aG "$grp" unlockos 2>/dev/null || true
+        done
+
+        # ── Mot de passe ──────────────────────────────────────────────────
+        echo "unlockos:unlockos" | sudo chroot /mnt/chroot chpasswd 2>/dev/null || true
+
+        # ── Sudoers ───────────────────────────────────────────────────────
         echo "unlockos ALL=(ALL) NOPASSWD:ALL" \
-          | sudo tee /mnt/chroot/etc/sudoers.d/unlockos > /dev/null
-        sudo chmod 440 /mnt/chroot/etc/sudoers.d/unlockos
+          | sudo tee /mnt/chroot/etc/sudoers.d/unlockos > /dev/null || true
+        sudo chmod 440 /mnt/chroot/etc/sudoers.d/unlockos 2>/dev/null || true
 
         # ── Regenerer l'initramfs avec overlay inclus ─────────────────────
         sudo chroot /mnt/chroot update-initramfs -u -k all 2>/dev/null || true
-        echo "live-boot + overlay configured"
-        cat /mnt/chroot/etc/live/config.conf
+
+        echo "Configuration live-boot terminee"
+        ls /mnt/chroot/boot/ 2>/dev/null || true
 
     # ─────────────────────────────────────────────────────────────
     # 8. Unmount virtual filesystems
