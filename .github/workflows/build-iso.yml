@@ -35,6 +35,7 @@ jobs:
           debootstrap squashfs-tools xorriso \
           grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed \
           grub-common mtools dosfstools \
+          shim-signed \
           build-essential git cmake pkg-config \
           libssl-dev libusb-1.0-0-dev \
           python3-pip python3-venv \
@@ -175,6 +176,7 @@ jobs:
       with:
         name: UnlockOS-ISO-${{ github.run_number }}
         path: |
+          unlockOS10.iso
           UnlockOS-*.iso
           UnlockOS-SHA256.txt
           UnlockOS-MD5.txt
