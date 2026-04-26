@@ -37,7 +37,7 @@ done
 # ─────────────────────────────────────────────────────────────────────────────
 log "ETAPE 1 — Creation de la structure ISO..."
 sudo rm -rf "$ISO_DIR"
-mkdir -p "$ISO_DIR"/{casper,boot/grub,EFI/boot}
+mkdir -p "$ISO_DIR"/{casper,boot/grub,EFI/BOOT}
 ok "Structure ISO creee"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ insmod gfxterm
 terminal_output gfxterm 2>/dev/null || terminal_output console
 
 # Recherche du peripherique de boot (ISO/USB)
-search --no-floppy --set=root --label UNLOCKOS_10
+search --no-floppy --set=root --file /casper/vmlinuz
 
 menuentry "UnlockOS 1.0 — Boot (Standard)" --class unlockos --class gnu-linux {
     linux   /casper/vmlinuz boot=casper quiet splash locale=fr_MA.UTF-8 ---
@@ -132,7 +132,7 @@ log "ETAPE 5 — Preparation GRUB EFI..."
 
 grub-mkstandalone \
   --format=x86_64-efi \
-  --output="$ISO_DIR/EFI/boot/bootx64.efi" \
+  --output="$ISO_DIR/EFI/BOOT/BOOTX64.EFI" \
   --install-modules="linux normal iso9660 biosdisk memdisk search tar ls all_video gfxterm font echo part_gpt part_msdos fat test" \
   --modules="linux normal iso9660 search part_gpt part_msdos fat" \
   --locales="" \
@@ -145,8 +145,8 @@ dd if=/dev/zero of="$ISO_DIR/boot/grub/efi.img" bs=1M count=20 2>/dev/null
 mkfs.fat -F 16 -n "EFIBOOT" "$ISO_DIR/boot/grub/efi.img" 2>/dev/null
 sudo mkdir -p /mnt/efi_tmp
 sudo mount "$ISO_DIR/boot/grub/efi.img" /mnt/efi_tmp 2>/dev/null || warn "Mount EFI img: echec"
-sudo mkdir -p /mnt/efi_tmp/EFI/boot 2>/dev/null || true
-sudo cp "$ISO_DIR/EFI/boot/bootx64.efi" /mnt/efi_tmp/EFI/boot/ 2>/dev/null || true
+sudo mkdir -p /mnt/efi_tmp/EFI/BOOT 2>/dev/null || true
+sudo cp "$ISO_DIR/EFI/BOOT/BOOTX64.EFI" /mnt/efi_tmp/EFI/BOOT/ 2>/dev/null || true
 sudo umount /mnt/efi_tmp 2>/dev/null || true
 
 ok "EFI image prete"
@@ -212,6 +212,7 @@ sudo xorriso \
   -eltorito-alt-boot \
     -e "boot/grub/efi.img" \
     -no-emul-boot \
+    -append_partition 2 0xef "$ISO_DIR/boot/grub/efi.img" \
   -output "$ISO_NAME" \
   "$ISO_DIR" \
   2>&1
