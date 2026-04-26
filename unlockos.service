@@ -1,0 +1,23 @@
+[Unit]
+Description=UnlockOS Dashboard — Serveur de contrôle automatisé
+Documentation=https://github.com/your-repo/unlockos
+After=network.target usbmuxd.service
+Wants=usbmuxd.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/unlockos/dashboard
+ExecStart=/usr/bin/python3 /opt/unlockos/dashboard/app.py --port 5000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=unlockos
+
+# Security hardening
+NoNewPrivileges=false
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target

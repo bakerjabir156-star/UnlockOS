@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UnlockOS — Dashboard de Contrôle</title>
+  <meta name="description" content="UnlockOS — Système de déblocage mobile automatisé. Contrôlez le pipeline iOS/Android en temps réel." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════
+     HEADER
+═════════════════════════════════════════════════════════════ -->
+<header class="header" id="app-header">
+  <div class="header-left">
+    <div class="logo">
+      <span class="logo-icon">🔓</span>
+      <div class="logo-text">
+        <span class="logo-name">UnlockOS</span>
+        <span class="logo-sub">Serveur d'Automatisation</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="header-center">
+    <div class="status-pill" id="engine-status-pill">
+      <span class="status-dot" id="engine-dot"></span>
+      <span id="engine-status-text">Connexion…</span>
+    </div>
+    {% if simulate %}
+    <div class="sim-badge">⚡ MODE SIMULATEUR</div>
+    {% endif %}
+  </div>
+
+  <div class="header-right">
+    <div class="stat-chip" id="chip-total">
+      <span class="chip-val" id="stat-total">0</span>
+      <span class="chip-label">Traités</span>
+    </div>
+    <div class="stat-chip success" id="chip-success">
+      <span class="chip-val" id="stat-success">0</span>
+      <span class="chip-label">Succès</span>
+    </div>
+    <div class="stat-chip error" id="chip-failed">
+      <span class="chip-val" id="stat-failed">0</span>
+      <span class="chip-label">Échecs</span>
+    </div>
+    <div class="stat-chip" id="chip-uptime">
+      <span class="chip-val" id="stat-uptime">0s</span>
+      <span class="chip-label">Uptime</span>
+    </div>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════
+     MAIN GRID
+═════════════════════════════════════════════════════════════ -->
+<main class="main-grid">
+
+  <!-- ── COL LEFT ─────────────────────────────────────────── -->
+  <aside class="col-left">
+
+    <!-- DEVICE PANEL -->
+    <section class="card" id="device-panel">
+      <div class="card-header">
+        <h2 class="card-title"><span class="icon">📡</span> Appareils Connectés</h2>
+        <span class="badge" id="device-count">0</span>
+      </div>
+      <div class="device-list" id="device-list">
+        <div class="empty-state" id="device-empty">
+          <div class="empty-icon">🔌</div>
+          <p>En attente d'appareils…</p>
+          <p class="empty-sub">Branchez un iPhone ou Android (USB / VirtualHere)</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PIPELINE PANEL -->
+    <section class="card" id="pipeline-panel">
+      <div class="card-header">
+        <h2 class="card-title"><span class="icon">⚙️</span> Pipeline de Déblocage</h2>
+      </div>
+      <div id="pipeline-list">
+        <div class="empty-state" id="pipeline-empty">
+          <div class="empty-icon">🔄</div>
+          <p>Aucun pipeline actif</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTROL PANEL -->
+    <section class="card" id="control-panel">
+      <div class="card-header">
+        <h2 class="card-title"><span class="icon">🎛️</span> Contrôles Manuels</h2>
+      </div>
+      <div class="control-grid">
+        <button class="ctrl-btn mdm"       id="btn-mdm"       onclick="triggerAction('force_mdm_bypass')">
+          <span class="btn-icon">🛡️</span>
+          <span class="btn-label">Forcer<br>MDM Bypass</span>
+        </button>
+        <button class="ctrl-btn proxy"     id="btn-proxy"     onclick="triggerAction('start_proxy')">
+          <span class="btn-icon">🌐</span>
+          <span class="btn-label">Démarrer<br>Proxy</span>
+        </button>
+        <button class="ctrl-btn proxy-off" id="btn-proxy-off" onclick="triggerAction('stop_proxy')">
+          <span class="btn-icon">🔌</span>
+          <span class="btn-label">Arrêter<br>Proxy</span>
+        </button>
+        <button class="ctrl-btn save"      id="btn-save"      onclick="triggerAction('save_tickets')">
+          <span class="btn-icon">💾</span>
+          <span class="btn-label">Sauvegarder<br>Tickets</span>
+        </button>
+        <button class="ctrl-btn stop"      id="btn-stop"      onclick="triggerAction('emergency_stop')">
+          <span class="btn-icon">🛑</span>
+          <span class="btn-label">Arrêt<br>d'Urgence</span>
+        </button>
+      </div>
+      <!-- Proxy status -->
+      <div class="proxy-status-row">
+        <span class="proxy-label">Proxy d'activation :</span>
+        <span class="proxy-badge" id="proxy-badge">INACTIF</span>
+      </div>
+      <!-- Action feedback -->
+      <div class="action-feedback" id="action-feedback" aria-live="polite"></div>
+    </section>
+
+  </aside>
+
+  <!-- ── COL RIGHT ────────────────────────────────────────── -->
+  <div class="col-right">
+
+    <!-- LOG CONSOLE -->
+    <section class="card console-card" id="log-panel">
+      <div class="card-header">
+        <h2 class="card-title"><span class="icon">📋</span> Console de Logs</h2>
+        <div class="console-controls">
+          <label class="toggle-label" for="toggle-autoscroll">
+            <input type="checkbox" id="toggle-autoscroll" checked />
+            Auto-scroll
+          </label>
+          <button class="icon-btn" id="btn-clear-log" title="Effacer les logs" onclick="clearLogs()">🗑</button>
+          <div class="log-filter">
+            <select id="log-level-filter" onchange="applyLogFilter()">
+              <option value="ALL">Tous</option>
+              <option value="SUCCESS">Succès</option>
+              <option value="ERROR">Erreurs</option>
+              <option value="WARNING">Avertissements</option>
+              <option value="INFO">Info</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="console" id="log-console" role="log" aria-label="Console de logs en direct">
+        <div class="console-line info">
+          <span class="ts">--:--:--</span>
+          <span class="lvl">INFO</span>
+          <span class="stg">SYSTEM</span>
+          <span class="msg">Connexion au serveur UnlockOS en cours…</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY TABLE -->
+    <section class="card" id="history-panel">
+      <div class="card-header">
+        <h2 class="card-title"><span class="icon">📜</span> Historique des Déblocages</h2>
+        <div class="header-actions">
+          <span class="badge" id="history-count">0</span>
+          <button class="icon-btn" id="btn-refresh-history" title="Rafraîchir" onclick="loadHistory()">🔄</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table class="history-table" id="history-table">
+          <thead>
+            <tr>
+              <th onclick="sortHistory('timestamp')"  data-col="timestamp">Date/Heure <span class="sort-icon">⇅</span></th>
+              <th onclick="sortHistory('model')"      data-col="model">Modèle <span class="sort-icon">⇅</span></th>
+              <th onclick="sortHistory('serial_num')" data-col="serial_num">Numéro de Série <span class="sort-icon">⇅</span></th>
+              <th onclick="sortHistory('ios_version')"data-col="ios_version">Version <span class="sort-icon">⇅</span></th>
+              <th onclick="sortHistory('method')"     data-col="method">Méthode <span class="sort-icon">⇅</span></th>
+              <th onclick="sortHistory('status')"     data-col="status">Statut <span class="sort-icon">⇅</span></th>
+              <th onclick="sortHistory('duration_s')" data-col="duration_s">Durée <span class="sort-icon">⇅</span></th>
+            </tr>
+          </thead>
+          <tbody id="history-body">
+            <tr class="empty-row">
+              <td colspan="7">Aucun historique disponible</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div><!-- /col-right -->
+
+</main>
+
+<!-- ════════════════════════════════════════════════════════════
+     TOAST NOTIFICATION
+═════════════════════════════════════════════════════════════ -->
+<div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>
