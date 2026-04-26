@@ -1,0 +1,200 @@
+name: Build UnlockOS ISO
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_distro:
+        description: 'Base Ubuntu version'
+        required: true
+        default: 'noble'
+        type: choice
+        options: [noble, jammy]
+
+jobs:
+  build-iso:
+    name: Build UnlockOS Bootable ISO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+    # ─────────────────────────────────────────────────────────────
+    # 1. Checkout
+    # ─────────────────────────────────────────────────────────────
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # ─────────────────────────────────────────────────────────────
+    # 2. Install ISO build tools
+    # ─────────────────────────────────────────────────────────────
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y \
+          debootstrap squashfs-tools xorriso \
+          grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed \
+          grub-common mtools dosfstools \
+          build-essential git cmake pkg-config \
+          libssl-dev libusb-1.0-0-dev \
+          python3-pip python3-venv \
+          curl wget ca-certificates
+
+    # ─────────────────────────────────────────────────────────────
+    # 3. Create base Ubuntu chroot via debootstrap
+    # ─────────────────────────────────────────────────────────────
+    - name: Create base Ubuntu 24.04 chroot
+      run: |
+        DISTRO="${{ github.event.inputs.base_distro || 'noble' }}"
+        echo "Building with base: $DISTRO"
+
+        sudo debootstrap \
+          --arch=amd64 \
+          --include=ca-certificates,curl,wget,gnupg,lsb-release \
+          "$DISTRO" \
+          chroot \
+          http://archive.ubuntu.com/ubuntu/
+
+        echo "Debootstrap complete"
+
+    # ─────────────────────────────────────────────────────────────
+    # 4. Configure chroot (sources.list + DNS)
+    # ─────────────────────────────────────────────────────────────
+    - name: Configure chroot environment
+      run: |
+        DISTRO="${{ github.event.inputs.base_distro || 'noble' }}"
+
+        # DNS resolution inside chroot
+        sudo cp /etc/resolv.conf chroot/etc/resolv.conf
+
+        # APT sources
+        sudo tee chroot/etc/apt/sources.list > /dev/null << EOF
+        deb http://archive.ubuntu.com/ubuntu $DISTRO main restricted universe multiverse
+        deb http://archive.ubuntu.com/ubuntu ${DISTRO}-updates main restricted universe multiverse
+        deb http://security.ubuntu.com/ubuntu ${DISTRO}-security main restricted universe multiverse
+        EOF
+
+        # Mount virtual filesystems
+        sudo mount --bind /dev  chroot/dev
+        sudo mount --bind /run  chroot/run
+        sudo mount -t proc  proc    chroot/proc
+        sudo mount -t sysfs sysfs   chroot/sys
+        sudo mount -t devpts devpts chroot/dev/pts
+
+    # ─────────────────────────────────────────────────────────────
+    # 5. Copy project sources into chroot
+    # ─────────────────────────────────────────────────────────────
+    - name: Copy UnlockOS sources into chroot
+      run: |
+        sudo mkdir -p chroot/opt/unlockos/dashboard
+        sudo mkdir -p chroot/tmp/unlockos-dashboard
+
+        # Copy full project
+        sudo cp -r . chroot/tmp/unlockos-dashboard/
+        echo "Sources copied to chroot"
+
+    # ─────────────────────────────────────────────────────────────
+    # 6. Run CI build script inside chroot
+    # ─────────────────────────────────────────────────────────────
+    - name: Run UnlockOS CI build inside chroot
+      run: |
+        sudo cp build_ci.sh chroot/tmp/build_ci.sh
+        sudo chmod +x chroot/tmp/build_ci.sh
+        sudo chroot chroot /bin/bash /tmp/build_ci.sh 2>&1 | tee build.log || true
+        echo "Chroot build complete"
+
+    # ─────────────────────────────────────────────────────────────
+    # 7. Install kernel + initrd inside chroot
+    # ─────────────────────────────────────────────────────────────
+    - name: Install kernel in chroot
+      run: |
+        sudo chroot chroot /bin/bash -c "
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            linux-image-generic \
+            linux-headers-generic \
+            casper \
+            lupin-casper \
+            discover \
+            laptop-detect \
+            os-prober \
+            network-manager \
+            resolvconf \
+            net-tools \
+            wireless-tools \
+            wpagui \
+            locales \
+            grub2 \
+            grub-pc \
+            --allow-unauthenticated 2>&1 || true
+        "
+
+    # ─────────────────────────────────────────────────────────────
+    # 8. Unmount virtual filesystems
+    # ─────────────────────────────────────────────────────────────
+    - name: Unmount chroot filesystems
+      if: always()
+      run: |
+        sudo umount -lf chroot/dev/pts 2>/dev/null || true
+        sudo umount -lf chroot/dev     2>/dev/null || true
+        sudo umount -lf chroot/run     2>/dev/null || true
+        sudo umount -lf chroot/proc    2>/dev/null || true
+        sudo umount -lf chroot/sys     2>/dev/null || true
+        echo "Unmount complete"
+
+    # ─────────────────────────────────────────────────────────────
+    # 9. Build ISO filesystem structure
+    # ─────────────────────────────────────────────────────────────
+    - name: Assemble ISO structure
+      run: |
+        sudo bash make_iso.sh 2>&1 | tee iso_build.log
+
+    # ─────────────────────────────────────────────────────────────
+    # 10. Get ISO size and checksum
+    # ─────────────────────────────────────────────────────────────
+    - name: Generate ISO checksum
+      run: |
+        ls -lh UnlockOS-*.iso 2>/dev/null || ls -lh *.iso
+        sha256sum UnlockOS-*.iso 2>/dev/null | tee UnlockOS-SHA256.txt || true
+        md5sum    UnlockOS-*.iso 2>/dev/null | tee UnlockOS-MD5.txt    || true
+
+    # ─────────────────────────────────────────────────────────────
+    # 11. Upload ISO as GitHub Actions Artifact (downloadable)
+    # ─────────────────────────────────────────────────────────────
+    - name: Upload ISO artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: UnlockOS-ISO-${{ github.run_number }}
+        path: |
+          UnlockOS-*.iso
+          UnlockOS-SHA256.txt
+          UnlockOS-MD5.txt
+          build.log
+        retention-days: 30
+        compression-level: 0
+
+    # ─────────────────────────────────────────────────────────────
+    # 12. Create GitHub Release (si tag poussé)
+    # ─────────────────────────────────────────────────────────────
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          UnlockOS-*.iso
+          UnlockOS-SHA256.txt
+        generate_release_notes: true
+        body: |
+          ## UnlockOS ${{ github.ref_name }}
+
+          ISO bootable generee automatiquement par GitHub Actions.
+
+          ### Flash la cle USB
+          - **Windows** : Rufus (rufus.ie) ou Balena Etcher
+          - **Linux/Mac** : `sudo dd if=UnlockOS-*.iso of=/dev/sdX bs=4M status=progress`
+
+          ### Verifier l'integrite
+          Comparez le SHA256 avec le fichier `UnlockOS-SHA256.txt`
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
