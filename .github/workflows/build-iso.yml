@@ -48,14 +48,17 @@ jobs:
         DISTRO="${{ github.event.inputs.base_distro || 'noble' }}"
         echo "Building with base: $DISTRO"
 
+        # IMPORTANT: chroot cree dans /mnt/chroot (HORS du workspace)
+        # pour eviter que cp -r copie recursivement le chroot lui-meme
+        sudo mkdir -p /mnt/chroot
         sudo debootstrap \
           --arch=amd64 \
           --include=ca-certificates,curl,wget,gnupg,lsb-release \
           "$DISTRO" \
-          chroot \
+          /mnt/chroot \
           http://archive.ubuntu.com/ubuntu/
 
-        echo "Debootstrap complete"
+        echo "Debootstrap complete: $(du -sh /mnt/chroot | cut -f1)"
 
     # ─────────────────────────────────────────────────────────────
     # 4. Configure chroot (sources.list + DNS)
@@ -65,42 +68,51 @@ jobs:
         DISTRO="${{ github.event.inputs.base_distro || 'noble' }}"
 
         # DNS resolution inside chroot
-        sudo cp /etc/resolv.conf chroot/etc/resolv.conf
+        sudo cp /etc/resolv.conf /mnt/chroot/etc/resolv.conf
 
-        # APT sources
-        sudo tee chroot/etc/apt/sources.list > /dev/null << EOF
-        deb http://archive.ubuntu.com/ubuntu $DISTRO main restricted universe multiverse
-        deb http://archive.ubuntu.com/ubuntu ${DISTRO}-updates main restricted universe multiverse
-        deb http://security.ubuntu.com/ubuntu ${DISTRO}-security main restricted universe multiverse
-        EOF
+        # APT sources (sans indentation pour eviter les espaces dans le fichier)
+        sudo tee /mnt/chroot/etc/apt/sources.list > /dev/null << EOF
+deb http://archive.ubuntu.com/ubuntu $DISTRO main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu ${DISTRO}-updates main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu ${DISTRO}-security main restricted universe multiverse
+EOF
 
         # Mount virtual filesystems
-        sudo mount --bind /dev  chroot/dev
-        sudo mount --bind /run  chroot/run
-        sudo mount -t proc  proc    chroot/proc
-        sudo mount -t sysfs sysfs   chroot/sys
-        sudo mount -t devpts devpts chroot/dev/pts
+        sudo mount --bind /dev  /mnt/chroot/dev
+        sudo mount --bind /run  /mnt/chroot/run
+        sudo mount -t proc  proc    /mnt/chroot/proc
+        sudo mount -t sysfs sysfs   /mnt/chroot/sys
+        sudo mount -t devpts devpts /mnt/chroot/dev/pts
 
     # ─────────────────────────────────────────────────────────────
     # 5. Copy project sources into chroot
     # ─────────────────────────────────────────────────────────────
     - name: Copy UnlockOS sources into chroot
       run: |
-        sudo mkdir -p chroot/opt/unlockos/dashboard
-        sudo mkdir -p chroot/tmp/unlockos-dashboard
+        sudo mkdir -p /mnt/chroot/opt/unlockos/dashboard
+        sudo mkdir -p /mnt/chroot/tmp/unlockos-dashboard
 
-        # Copy full project
-        sudo cp -r . chroot/tmp/unlockos-dashboard/
-        echo "Sources copied to chroot"
+        # Copie SANS le dossier chroot lui-meme (evite la recursion)
+        # rsync exclut .git et tout repertoire temporaire
+        sudo rsync -a \
+          --exclude='.git' \
+          --exclude='chroot/' \
+          --exclude='iso_staging/' \
+          --exclude='*.iso' \
+          --exclude='*.db' \
+          --exclude='__pycache__/' \
+          ./ /mnt/chroot/tmp/unlockos-dashboard/
+
+        echo "Sources copiees: $(ls /mnt/chroot/tmp/unlockos-dashboard/)"
 
     # ─────────────────────────────────────────────────────────────
     # 6. Run CI build script inside chroot
     # ─────────────────────────────────────────────────────────────
     - name: Run UnlockOS CI build inside chroot
       run: |
-        sudo cp build_ci.sh chroot/tmp/build_ci.sh
-        sudo chmod +x chroot/tmp/build_ci.sh
-        sudo chroot chroot /bin/bash /tmp/build_ci.sh 2>&1 | tee build.log || true
+        sudo cp build_ci.sh /mnt/chroot/tmp/build_ci.sh
+        sudo chmod +x /mnt/chroot/tmp/build_ci.sh
+        sudo chroot /mnt/chroot /bin/bash /tmp/build_ci.sh 2>&1 | tee build.log || true
         echo "Chroot build complete"
 
     # ─────────────────────────────────────────────────────────────
@@ -108,26 +120,21 @@ jobs:
     # ─────────────────────────────────────────────────────────────
     - name: Install kernel in chroot
       run: |
-        sudo chroot chroot /bin/bash -c "
+        sudo chroot /mnt/chroot /bin/bash -c "
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -qq
           apt-get install -y --no-install-recommends \
             linux-image-generic \
-            linux-headers-generic \
             casper \
             lupin-casper \
             discover \
             laptop-detect \
             os-prober \
             network-manager \
-            resolvconf \
             net-tools \
-            wireless-tools \
-            wpagui \
             locales \
             grub2 \
-            grub-pc \
-            --allow-unauthenticated 2>&1 || true
+            grub-pc 2>&1 || true
         "
 
     # ─────────────────────────────────────────────────────────────
@@ -136,11 +143,11 @@ jobs:
     - name: Unmount chroot filesystems
       if: always()
       run: |
-        sudo umount -lf chroot/dev/pts 2>/dev/null || true
-        sudo umount -lf chroot/dev     2>/dev/null || true
-        sudo umount -lf chroot/run     2>/dev/null || true
-        sudo umount -lf chroot/proc    2>/dev/null || true
-        sudo umount -lf chroot/sys     2>/dev/null || true
+        sudo umount -lf /mnt/chroot/dev/pts 2>/dev/null || true
+        sudo umount -lf /mnt/chroot/dev     2>/dev/null || true
+        sudo umount -lf /mnt/chroot/run     2>/dev/null || true
+        sudo umount -lf /mnt/chroot/proc    2>/dev/null || true
+        sudo umount -lf /mnt/chroot/sys     2>/dev/null || true
         echo "Unmount complete"
 
     # ─────────────────────────────────────────────────────────────
@@ -148,7 +155,8 @@ jobs:
     # ─────────────────────────────────────────────────────────────
     - name: Assemble ISO structure
       run: |
-        sudo bash make_iso.sh 2>&1 | tee iso_build.log
+        # make_iso.sh utilise /mnt/chroot (variable CHROOT_DIR)
+        sudo CHROOT_DIR=/mnt/chroot bash make_iso.sh 2>&1 | tee iso_build.log
 
     # ─────────────────────────────────────────────────────────────
     # 10. Get ISO size and checksum

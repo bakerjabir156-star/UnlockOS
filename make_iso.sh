@@ -12,7 +12,8 @@ warn() { echo "[ WARN  ] $*"; }
 die()  { echo "[ FAIL  ] $*" >&2; exit 1; }
 
 ISO_DIR="iso_staging"
-CHROOT_DIR="chroot"
+# CHROOT_DIR peut etre passe en variable d'environnement par le workflow CI
+CHROOT_DIR="${CHROOT_DIR:-/mnt/chroot}"
 VERSION="1.0"
 DATE=$(date +%Y%m%d)
 ISO_NAME="UnlockOS-${VERSION}-${DATE}-amd64.iso"
