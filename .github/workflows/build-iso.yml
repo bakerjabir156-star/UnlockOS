@@ -70,12 +70,13 @@ jobs:
         # DNS resolution inside chroot
         sudo cp /etc/resolv.conf /mnt/chroot/etc/resolv.conf
 
-        # APT sources (sans indentation pour eviter les espaces dans le fichier)
-        sudo tee /mnt/chroot/etc/apt/sources.list > /dev/null << EOF
-deb http://archive.ubuntu.com/ubuntu $DISTRO main restricted universe multiverse
-deb http://archive.ubuntu.com/ubuntu ${DISTRO}-updates main restricted universe multiverse
-deb http://security.ubuntu.com/ubuntu ${DISTRO}-security main restricted universe multiverse
-EOF
+        # APT sources
+        sudo bash -c "cat > /mnt/chroot/etc/apt/sources.list << EOF
+        deb http://archive.ubuntu.com/ubuntu $DISTRO main restricted universe multiverse
+        deb http://archive.ubuntu.com/ubuntu ${DISTRO}-updates main restricted universe multiverse
+        deb http://security.ubuntu.com/ubuntu ${DISTRO}-security main restricted universe multiverse
+        EOF"
+        sudo sed -i 's/^[ \t]*//' /mnt/chroot/etc/apt/sources.list
 
         # Mount virtual filesystems
         sudo mount --bind /dev  /mnt/chroot/dev
