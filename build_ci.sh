@@ -58,6 +58,7 @@ step "3/9 — libimobiledevice stack"
 apt-get install -y \
   libimobiledevice-dev libimobiledevice-utils \
   usbmuxd libusbmuxd-dev libirecovery-dev libplist-dev \
+  ideviceinstaller \
   -qq 2>/dev/null || warn "libimobiledevice apt: certains paquets manquants"
 
 mkdir -p "$BUILD_DIR/apple"
@@ -65,8 +66,7 @@ cd "$BUILD_DIR/apple"
 
 # Compiler uniquement ce qui manque en apt
 for repo_url in \
-  "https://github.com/libimobiledevice/libideviceactivation" \
-  "https://github.com/libimobiledevice/ideviceinstaller"
+  "https://github.com/libimobiledevice/libideviceactivation"
 do
   repo_name=$(basename "$repo_url")
   log "Compilation: $repo_name"
@@ -137,7 +137,7 @@ echo "Meow-Activator — a placer manuellement. Voir README." \
 step "6/9 — Outils Android"
 mkdir -p "$BUILD_DIR/android"
 
-pip3 install --quiet mtkclient pyusb pyserial cryptography colorama 2>/dev/null \
+pip3 install --break-system-packages --quiet mtkclient pyusb pyserial cryptography colorama 2>/dev/null \
   && ok "MTKClient installe" || warn "mtkclient pip: echec partiel"
 
 git clone --depth=1 https://github.com/offici5l/MiUnlockTool "$BUILD_DIR/android/MiUnlockTool" 2>/dev/null \
@@ -147,7 +147,7 @@ git clone --depth=1 https://github.com/offici5l/MiUnlockTool "$BUILD_DIR/android
 # ETAPE 7 : Reseau (mitmproxy)
 # ─────────────────────────────────────────────────────────────────────────────
 step "7/9 — Infrastructure reseau"
-pip3 install --quiet mitmproxy 2>/dev/null && ok "mitmproxy installe" || warn "mitmproxy: echec"
+pip3 install --break-system-packages --quiet mitmproxy 2>/dev/null && ok "mitmproxy installe" || warn "mitmproxy: echec"
 
 # Tailscale (optionnel en CI)
 curl -fsSL https://tailscale.com/install.sh | sh 2>/dev/null \
@@ -157,7 +157,7 @@ curl -fsSL https://tailscale.com/install.sh | sh 2>/dev/null \
 # ETAPE 8 : Dashboard Flask
 # ─────────────────────────────────────────────────────────────────────────────
 step "8/9 — Dashboard UnlockOS"
-pip3 install --quiet flask 2>/dev/null && ok "Flask installe"
+pip3 install --break-system-packages --quiet flask 2>/dev/null && ok "Flask installe"
 
 mkdir -p "$DASHBOARD_DIR"
 
