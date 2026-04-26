@@ -247,6 +247,49 @@ python3 app.py --port 5000
 EOF
 chmod +x /usr/local/bin/unlockos-start
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ETAPE 10 : Interface Graphique Kiosk (Autonome)
+# ─────────────────────────────────────────────────────────────────────────────
+step "10/10 — Interface Graphique (Kiosk Mode)"
+
+# Installation du serveur X, Openbox, LightDM et utilitaires
+apt-get install -y --no-install-recommends \
+  xserver-xorg x11-xserver-utils xinit \
+  lightdm openbox \
+  fonts-liberation fonts-noto-color-emoji \
+  -qq 2>/dev/null || warn "Certains paquets graphiques ont echoue"
+
+# Installation de Google Chrome (pour eviter les snaps)
+wget -q -O google-chrome-stable_current_amd64.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+apt-get install -y ./google-chrome-stable_current_amd64.deb 2>/dev/null || warn "Echec de l'installation de Chrome"
+rm -f google-chrome-stable_current_amd64.deb
+
+# Configuration d'Openbox pour demarrer Chrome en plein ecran
+mkdir -p /etc/xdg/openbox
+cat > /etc/xdg/openbox/autostart << 'EOF'
+# Desactiver la mise en veille de l'ecran
+xset s off
+xset s noblank
+xset -dpms
+
+# Lancer le Dashboard en mode Kiosk (Plein ecran, pas de barres)
+# On attend 2 secondes que le serveur Flask soit bien en ecoute
+sleep 2
+google-chrome-stable --kiosk --incognito --no-first-run --no-default-browser-check --disable-infobars --window-position=0,0 --window-size=1920,1080 "http://localhost:5000" &
+EOF
+chmod +x /etc/xdg/openbox/autostart
+
+# Forcer lightdm a faire l'autologin de l'utilisateur unlockos
+mkdir -p /etc/lightdm
+cat > /etc/lightdm/lightdm.conf << 'EOF'
+[Seat:*]
+autologin-user=unlockos
+autologin-user-timeout=0
+user-session=openbox
+EOF
+
+ok "Interface Kiosk (Xorg + Openbox + Chrome) configuree"
+
 # Nettoyage
 apt-get autoremove -y -qq 2>/dev/null || true
 apt-get clean -qq
