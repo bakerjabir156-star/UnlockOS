@@ -212,7 +212,6 @@ sudo xorriso \
   -eltorito-alt-boot \
     -e "boot/grub/efi.img" \
     -no-emul-boot \
-    -append_partition 2 0xef "$ISO_DIR/boot/grub/efi.img" \
   -output "$ISO_NAME" \
   "$ISO_DIR" \
   2>&1
