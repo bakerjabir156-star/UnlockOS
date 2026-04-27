@@ -62,26 +62,68 @@ def _run_action(q: queue.Queue, name: str, command: str, stage: str, device: dic
 # ---------------------------------------------------------------------------
 
 def get_ios_device_info(q: queue.Queue) -> Optional[dict]:
-    """Query ideviceinfo for connected iOS device. Returns None if not found."""
+    """Query ideviceinfo or lsusb for connected iOS device. Returns None if not found."""
     try:
+        # 1. Check for DFU or Recovery mode via lsusb
+        lsusb = subprocess.check_output(["lsusb"], stderr=subprocess.DEVNULL, timeout=5).decode()
+        if "05ac:1227" in lsusb.lower() or "dfu mode" in lsusb.lower():
+            return {
+                "platform": "ios",
+                "model": "iPhone (DFU Mode)",
+                "version": "Unknown",
+                "serial": "DFU_DEVICE",
+                "chipset": "Unknown",
+                "connection": "usb",
+            }
+        if "05ac:1281" in lsusb.lower() or "recovery mode" in lsusb.lower():
+            return {
+                "platform": "ios",
+                "model": "iPhone (Recovery Mode)",
+                "version": "Unknown",
+                "serial": "RECOVERY_DEVICE",
+                "chipset": "Unknown",
+                "connection": "usb",
+            }
+
+        # 2. Check for Normal mode devices
+        # Even if locked, idevice_id -l returns the UDID
+        ids = subprocess.check_output(["idevice_id", "-l"], stderr=subprocess.DEVNULL, timeout=5).decode().strip().split()
+        if not ids:
+            return None
+        
+        udid = ids[0]
+        
+        # Try to get detailed info
         def query(key):
             return subprocess.check_output(
-                ["ideviceinfo", "-k", key],
+                ["ideviceinfo", "-u", udid, "-k", key],
                 stderr=subprocess.DEVNULL, timeout=5,
             ).decode().strip()
 
-        model = query("ProductType")
-        version = query("ProductVersion")
-        sn = query("SerialNumber")
-        cpu = query("CPUArchitecture")
-        return {
-            "platform": "ios",
-            "model": model,
-            "version": version,
-            "serial": sn,
-            "chipset": cpu,
-            "connection": "local",
-        }
+        try:
+            model = query("ProductType")
+            version = query("ProductVersion")
+            sn = query("SerialNumber")
+            cpu = query("CPUArchitecture")
+            return {
+                "platform": "ios",
+                "model": model,
+                "version": version,
+                "serial": sn,
+                "chipset": cpu,
+                "connection": "usb",
+            }
+        except Exception:
+            # Device is connected but locked/untrusted (Trust dialog not accepted)
+            return {
+                "platform": "ios",
+                "model": "iPhone (Locked/Untrusted)",
+                "version": "Unknown",
+                "serial": udid[:12] + "...",
+                "chipset": "Unknown",
+                "connection": "usb",
+            }
+
     except Exception:
         return None
 

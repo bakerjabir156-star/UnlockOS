@@ -147,7 +147,7 @@ git clone --depth=1 https://github.com/offici5l/MiUnlockTool "$BUILD_DIR/android
 # ETAPE 7 : Reseau (mitmproxy)
 # ─────────────────────────────────────────────────────────────────────────────
 step "7/9 — Infrastructure reseau"
-pip3 install --break-system-packages --quiet mitmproxy 2>/dev/null && ok "mitmproxy installe" || warn "mitmproxy: echec"
+apt-get install -y mitmproxy -qq 2>/dev/null && ok "mitmproxy installe via apt" || warn "mitmproxy: echec"
 
 # Tailscale (optionnel en CI)
 curl -fsSL https://tailscale.com/install.sh | sh 2>/dev/null \
