@@ -210,47 +210,30 @@ jobs:
     # ─────────────────────────────────────────────────────────────
     - name: Generate ISO checksum
       run: |
-        ls -lh UnlockOS-*.iso 2>/dev/null || ls -lh *.iso
-        sha256sum UnlockOS-*.iso 2>/dev/null | tee UnlockOS-SHA256.txt || true
-        md5sum    UnlockOS-*.iso 2>/dev/null | tee UnlockOS-MD5.txt    || true
+        sudo ls -lh *.iso
+        sudo sha256sum unlockOS10.iso | sudo tee UnlockOS-SHA256.txt || true
+        sudo md5sum    unlockOS10.iso | sudo tee UnlockOS-MD5.txt    || true
 
     # ─────────────────────────────────────────────────────────────
-    # 11. Upload ISO as GitHub Actions Artifact (downloadable)
+    # 11. Create GitHub Release (Contourne la limite de quota d'Artifacts)
     # ─────────────────────────────────────────────────────────────
-    - name: Upload ISO artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: UnlockOS-ISO-${{ github.run_number }}
-        path: |
-          unlockOS10.iso
-          UnlockOS-*.iso
-          UnlockOS-SHA256.txt
-          UnlockOS-MD5.txt
-          build.log
-        retention-days: 30
-        compression-level: 0
-
-    # ─────────────────────────────────────────────────────────────
-    # 12. Create GitHub Release (si tag poussé)
-    # ─────────────────────────────────────────────────────────────
-    - name: Create GitHub Release
-      if: startsWith(github.ref, 'refs/tags/')
+    - name: Publish ISO to Release
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: latest-build
+        name: UnlockOS Latest Build (Auto-generated)
+        prerelease: true
         files: |
-          UnlockOS-*.iso
+          unlockOS10.iso
           UnlockOS-SHA256.txt
-        generate_release_notes: true
+          UnlockOS-MD5.txt
         body: |
-          ## UnlockOS ${{ github.ref_name }}
+          ## UnlockOS (Dernier Build)
+          ISO bootable (Mode Kiosk intégré) générée automatiquement.
 
-          ISO bootable generee automatiquement par GitHub Actions.
-
-          ### Flash la cle USB
-          - **Windows** : Rufus (rufus.ie) ou Balena Etcher
-          - **Linux/Mac** : `sudo dd if=UnlockOS-*.iso of=/dev/sdX bs=4M status=progress`
-
-          ### Verifier l'integrite
-          Comparez le SHA256 avec le fichier `UnlockOS-SHA256.txt`
+          ### Flash la clé USB
+          - **Schéma** : GPT
+          - **Système** : UEFI (non CSM)
+          - **Logiciel** : Rufus (Mode ISO standard) ou Balena Etcher
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
