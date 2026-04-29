@@ -25,6 +25,8 @@ from config import (
     SIM_PIPELINE_STEP_DELAY,
     PROXY_PORT,
     ACTIVATION_HIJACK_SCRIPT,
+    BASE_DIR,
+    MDM_TOOL,
 )
 import AutoUnlocker_NoAPI as unlocker
 
@@ -583,11 +585,12 @@ def action_force_mdm_bypass() -> str:
         time.sleep(0.5)
         _emit("SUCCESS", "BYPASS", "✅ [SIM] MDM Bypass manuel appliqué")
         return "MDM Bypass simulé avec succès"
+    _emit("INFO", "BYPASS", "🛡️ Forçage MDM Bypass déclenché manuellement...")
     result = subprocess.run(
-        ["python3", "-m", "mdm_patcher", "--bypass", "--force"],
+        ["python3", MDM_TOOL, "--bypass", "--force"],
         capture_output=True, text=True,
     )
-    _emit("INFO", "BYPASS", f"MDM Bypass manuel: {result.stdout.strip()}")
+    _emit("INFO", "BYPASS", f"MDM Bypass manuel: {result.stdout.strip() or 'Exécuté'}")
     return "MDM Bypass déclenché"
 
 
@@ -608,7 +611,15 @@ def action_save_tickets() -> str:
         _emit("SUCCESS", "FINALIZE", "✅ [SIM] Tickets sauvegardés dans ~/UnlockOS_Backups/")
         return "Tickets simulés sauvegardés"
     _emit("INFO", "FINALIZE", "💾 Sauvegarde manuelle des tickets en cours...")
-    return "Sauvegarde tickets déclenchée"
+    devices = get_devices()
+    if not devices:
+        _emit("WARNING", "FINALIZE", "⚠ Aucun appareil détecté pour la sauvegarde.")
+        return "Échec : Aucun appareil"
+    
+    # Save for the first device
+    device = devices[0]
+    threading.Thread(target=unlocker.save_activation_tickets, args=(_log_q, device), daemon=True).start()
+    return f"Sauvegarde lancée pour {device['model']}"
 
 
 def action_reinstall_libs() -> str:
@@ -620,8 +631,9 @@ def action_reinstall_libs() -> str:
     
     _emit("INFO", "DETECTION", "📦 Lancement du script de réinstallation des librairies...")
     try:
-        # Assuming there is a script or a command to run
-        subprocess.Popen(["bash", "/opt/unlockos/update_tools.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        import os
+        script_path = os.path.join(BASE_DIR, "update_tools.sh")
+        subprocess.Popen(["bash", script_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
         _emit("ERROR", "DETECTION", f"❌ Échec de la réinstallation : {e}")
         return "Erreur lors de la réinstallation"

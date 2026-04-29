@@ -178,7 +178,7 @@ def pipeline_mdm_bypass(q: queue.Queue, device: dict) -> bool:
     _run_action(q, "iDevice Pair", "/usr/bin/idevicepair pair", "BYPASS", device)
 
     # ── Étape 2 : Tentative MDM Bypass rapide (via mdm_patcher) ──────────────
-    res = _run_action(q, "MDM Patcher", "python3 /opt/unlockos/dashboard/MDMPatcher-Enhanced/mdm_patcher.py --bypass", "BYPASS", device)
+    res = _run_action(q, "MDM Patcher", f"python3 {MDM_TOOL} --bypass", "BYPASS", device)
     
     if res and res.get("success"):
         _emit(q, "SUCCESS", "BYPASS", "✅ MDM Bypass rapide reussi !", device)
@@ -224,7 +224,7 @@ def pipeline_proxy_hijack(q: queue.Queue, device: dict,
         try:
             _proxy_proc = subprocess.Popen(
                 ["mitmdump", "-s", hijack_script, "-p", "8080",
-                 "--quiet", "--no-http2", "--ssl-insecure"],
+                 "--quiet", "--no-http2"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
